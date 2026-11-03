@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "Gibberish Decoder",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "متن تایپ‌شده با کیبورد اشتباه (فارسی ↔ انگلیسی) را در باکس چت درست می‌کند، با نیم‌فاصله و پیشنهاد غلط املایی. کاملا آفلاین.",
+    "description": "Extension description"
+  }
+}

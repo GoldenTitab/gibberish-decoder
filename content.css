@@ -1,0 +1,37 @@
+.gd-float-btn {
+  position: fixed !important; z-index: 2147483647 !important;
+  background: #1e1b4b !important; color: #fff !important;
+  border: 1px solid #6366f1 !important; border-radius: 999px !important;
+  padding: 6px 12px !important; font-size: 13px !important; line-height: 1.4 !important;
+  font-family: 'Vazir', system-ui, Tahoma, sans-serif !important; cursor: pointer !important;
+  box-shadow: 0 4px 18px rgba(0,0,0,.28) !important; white-space: nowrap !important;
+}
+.gd-float-btn:hover { background: #312e81 !important; }
+.gd-panel {
+  position: fixed !important; z-index: 2147483647 !important; width: 330px !important; max-width: calc(100vw - 20px) !important;
+  background: #fff !important; color: #111 !important; border: 1px solid #ddd !important; border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,.28) !important; padding: 12px !important;
+  font-family: 'Vazir', system-ui, Tahoma, sans-serif !important; font-size: 13px !important; line-height: 1.6 !important;
+}
+.gd-panel-title { font-weight: 700 !important; margin-bottom: 8px !important; }
+.gd-row { border-top: 1px solid #eee !important; padding: 8px 0 !important; }
+.gd-lab { color: #555 !important; font-size: 12px !important; }
+.gd-txt { margin: 4px 0 !important; word-break: break-word !important; }
+.gd-orig { color: #b91c1c !important; }
+.gd-corr { color: #15803d !important; font-weight: 600 !important; }
+.gd-btns { display: flex !important; gap: 6px !important; flex-wrap: wrap !important; }
+.gd-mini, .gd-primary, .gd-secondary {
+  border-radius: 999px !important; padding: 4px 10px !important; font-size: 12px !important; cursor: pointer !important;
+  font-family: inherit !important;
+}
+.gd-mini { background: #eef2ff !important; border: 1px solid #c7d2fe !important; color: #1e1b4b !important; }
+.gd-mini.gd-keep { background: #f3f4f6 !important; border-color: #ddd !important; color: #333 !important; }
+.gd-foot { display: flex !important; gap: 8px !important; margin-top: 10px !important; flex-wrap: wrap !important; }
+.gd-primary { background: #1e1b4b !important; color: #fff !important; border: 1px solid #1e1b4b !important; padding: 6px 12px !important; }
+.gd-secondary { background: #fff !important; color: #111 !important; border: 1px solid #ddd !important; padding: 6px 12px !important; }
+@media (prefers-color-scheme: dark) {
+  .gd-panel { background: #1f2937 !important; color: #f3f4f6 !important; border-color: #374151 !important; }
+  .gd-lab { color: #9ca3af !important; }
+  .gd-row { border-color: #374151 !important; }
+  .gd-secondary { background: #1f2937 !important; color: #f3f4f6 !important; border-color: #4b5563 !important; }
+}

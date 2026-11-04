@@ -104,50 +104,6 @@
     return out;
   }
 
-  // Optimal string alignment (Damerau-Levenshtein, restricted): a
-  // transposition like "wrold" -> "world" costs 1, not 2.
-  function levenshtein(a, b, maxDist) {
-    if (Math.abs(a.length - b.length) > maxDist) return maxDist + 1;
-    const dp = [];
-    for (let i = 0; i <= a.length; i++) { dp[i] = []; dp[i][0] = i; }
-    for (let j = 0; j <= b.length; j++) dp[0][j] = j;
-    for (let i = 1; i <= a.length; i++) {
-      for (let j = 1; j <= b.length; j++) {
-        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        let v = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
-        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, dp[i - 2][j - 2] + 1);
-        dp[i][j] = v;
-      }
-    }
-    return dp[a.length][b.length];
-  }
-  function closestEnList(word) {
-    const s = sets(); const lower = word.toLowerCase();
-    if (lower.length < 4) return [];
-    const maxD = lower.length >= 9 ? 2 : 1;
-    let bestD = maxD + 1; let out = [];
-    for (const cand of s.enList) {
-      if (Math.abs(cand.length - lower.length) > maxD) continue;
-      const d = levenshtein(lower, cand, maxD);
-      if (d < bestD) { bestD = d; out = [cand]; }
-      else if (d === bestD && out.length < 3 && out.indexOf(cand) === -1) out.push(cand);
-    }
-    return bestD <= maxD ? out : [];
-  }
-  function closestFaList(wordNorm) {
-    const s = sets();
-    if (wordNorm.length < 3) return [];
-    const maxD = wordNorm.length >= 8 ? 2 : 1;
-    let bestD = maxD + 1; let out = [];
-    for (const cand of s.faList) {
-      const key = faLookupKey(cand);
-      if (Math.abs(key.length - wordNorm.length) > maxD) continue;
-      const d = levenshtein(wordNorm, key, maxD);
-      if (d < bestD) { bestD = d; out = [cand]; }
-      else if (d === bestD && out.length < 3 && out.indexOf(cand) === -1) out.push(cand);
-    }
-    return bestD <= maxD ? out : [];
-  }
   function hasVowel(s) { return /[aeiou]/i.test(s); }
   // A decoded Persian word is only "likely English" when it could be
   // pronounced: has a vowel and no run of 3+ consonants ("isjl" is not).
@@ -164,11 +120,11 @@
   }
 
   function analyze(text, settings) {
-    settings = Object.assign({ fixNumbers: true, fixZwnj: true, spellEn: true, spellFa: true }, settings || {});
+    settings = Object.assign({ fixNumbers: true, fixZwnj: true }, settings || {});
     const s = sets();
     const issues = [];
     // ---- Step 1: ZWNJ first, so "می روم" is fixed as a pair and its
-    // parts are never flagged as spelling errors on their own.
+    // parts are handled as a single half-space correction.
     const zwnjIssues = [];
     if (settings.fixZwnj) {
       zwnjPairs(text).forEach(function (p) {
@@ -237,17 +193,8 @@
           }
         }
         if (handled) return;
-        // Valid English, or spelling.
+        // Valid English; unknown words are left untouched.
         if (s.en.has(core.toLowerCase())) { chunkDirs[ci] = 'en'; return; }
-        if (settings.spellEn && /^[A-Za-z]+$/.test(core)) {
-          const sug = closestEnList(core);
-          if (sug.length) {
-            const fixed = /^[A-Z]/.test(core) ? sug[0].charAt(0).toUpperCase() + sug[0].slice(1) : sug[0];
-            const start = chunk.start + t.indexOf(core);
-            issues.push({ start: start, end: start + core.length, original: core, corrected: fixed, type: 'spelling-en', alternatives: sug, confidence: 'edit1' });
-            chunkDirs[ci] = 'en'; return;
-          }
-        }
         chunkDirs[ci] = null; return;
       }
       // Persian chunk
@@ -266,14 +213,6 @@
         const corr = convertFaToEn(core, settings);
         issues.push({ start: start, end: start + core.length, original: core, corrected: corr, type: 'layout-en', alternatives: [corr], confidence: 'likely' });
         chunkDirs[ci] = 'en'; return;
-      }
-      if (settings.spellFa) {
-        const sug = closestFaList(faLookupKey(core));
-        if (sug.length) {
-          const start = chunk.start + t.indexOf(core);
-          issues.push({ start: start, end: start + core.length, original: core, corrected: sug[0], type: 'spelling-fa', alternatives: sug, confidence: 'edit1' });
-          chunkDirs[ci] = 'fa'; return;
-        }
       }
       chunkDirs[ci] = null;
     });
@@ -315,12 +254,9 @@
 
     issues.sort(function (x, y) { return x.start - y.start; });
     let correctedText = text;
-    // Spelling suggestions are NEVER auto-applied: the dictionaries are
-    // small, so an unlisted word like "هوا" or "کمک" would otherwise be
-    // "corrected" into a wrong one (ها / نمک). The panel lists them and
-    // the user clicks. Ambiguous and "likely" items are not auto-applied.
+    // Apply only confident keyboard-layout/ZWNJ/number corrections.
     const apply = issues.filter(function (it) {
-      return it.type !== 'ambiguous' && it.confidence !== 'likely' && it.type.indexOf('spelling') !== 0;
+      return it.type !== 'ambiguous' && it.confidence !== 'likely';
     });
     for (let i = apply.length - 1; i >= 0; i--) {
       const it = apply[i];

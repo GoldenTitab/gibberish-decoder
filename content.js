@@ -7,14 +7,14 @@
    "Fix and send", which applies the fix and re-triggers the send. */
 (function () {
   'use strict';
-  const DEFAULTS = { enabled: true, showButton: true, warnBeforeSend: true, fixNumbers: true, fixZwnj: true, spellEn: true, spellFa: true, strictChatOnly: true, uiLang: 'fa' };
+  const DEFAULTS = { enabled: true, showButton: true, warnBeforeSend: true, fixNumbers: true, fixZwnj: true, strictChatOnly: true, uiLang: 'fa' };
   let settings = Object.assign({}, DEFAULTS);
   let sendBypass = new WeakMap(); // element -> true while we re-trigger its send
   let dismissed = new WeakMap(); // element -> text the user chose to keep as is (Enter guard stays quiet for it)
 
   const STR = {
-    fa: { btn: 'تبدیل متن', fixAll: 'اصلاح همه', close: 'بستن', fixSend: 'اصلاح و ارسال', keep: 'همین بمونه', layoutFa: 'کیبورد اشتباه: فارسی', layoutEn: 'کیبورد اشتباه: انگلیسی', spellingEn: 'غلط املایی انگلیسی؟', spellingFa: 'غلط املایی فارسی؟', zwnj: 'نیم‌فاصله', ambiguous: 'هر دو معنی می‌ده، انتخاب کن', apply: 'اعمال', title: 'Gibberish Decoder — پیشنهاد اصلاح' },
-    en: { btn: 'Fix text', fixAll: 'Fix all', close: 'Close', fixSend: 'Fix and send', keep: 'Keep as is', layoutFa: 'Wrong layout: Persian', layoutEn: 'Wrong layout: English', spellingEn: 'English spelling?', spellingFa: 'Persian spelling?', zwnj: 'Half-space (ZWNJ)', ambiguous: 'Both make sense — pick one', apply: 'Apply', title: 'Gibberish Decoder — suggested fix' }
+    fa: { btn: 'تبدیل متن', fixAll: 'اصلاح همه', close: 'بستن', fixSend: 'اصلاح و ارسال', keep: 'همین بمونه', layoutFa: 'کیبورد اشتباه: فارسی', layoutEn: 'کیبورد اشتباه: انگلیسی', zwnj: 'نیم‌فاصله', ambiguous: 'هر دو معنی می‌ده، انتخاب کن', apply: 'اعمال', title: 'Gibberish Decoder — پیشنهاد تبدیل' },
+    en: { btn: 'Fix text', fixAll: 'Fix all', close: 'Close', fixSend: 'Fix and send', keep: 'Keep as is', layoutFa: 'Wrong layout: Persian', layoutEn: 'Wrong layout: English', zwnj: 'Half-space (ZWNJ)', ambiguous: 'Both make sense — pick one', apply: 'Apply', title: 'Gibberish Decoder — layout suggestions' }
   };
   function t(key) { return (STR[settings.uiLang] || STR.fa)[key] || key; }
 
@@ -134,6 +134,8 @@
       floatBtn = document.createElement('button');
       floatBtn.type = 'button';
       floatBtn.className = 'gd-float-btn';
+      floatBtn.setAttribute('aria-label', t('btn'));
+      floatBtn.setAttribute('aria-haspopup', 'dialog');
       floatBtn.addEventListener('click', function (e) {
         e.preventDefault(); e.stopPropagation(); sendMode = false;
         if (currentEl && currentAnalysis) showPanel(currentEl, currentAnalysis, false);
@@ -149,8 +151,6 @@
   function typeLabel(issue) {
     if (issue.type === 'layout-fa') return t('layoutFa');
     if (issue.type === 'layout-en') return t('layoutEn');
-    if (issue.type === 'spelling-en') return t('spellingEn');
-    if (issue.type === 'spelling-fa') return t('spellingFa');
     if (issue.type === 'zwnj') return t('zwnj');
     return t('ambiguous');
   }
@@ -159,8 +159,12 @@
     if (panel) panel.remove();
     panel = document.createElement('div');
     panel.className = 'gd-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'false');
+    panel.setAttribute('aria-label', t('title'));
+    panel.setAttribute('tabindex', '-1');
     panel.dir = settings.uiLang === 'fa' ? 'rtl' : 'ltr';
-    const title = document.createElement('div'); title.className = 'gd-panel-title'; title.textContent = t('title'); panel.appendChild(title);
+    const title = document.createElement('div'); title.className = 'gd-panel-title'; title.id = 'gd-panel-title'; panel.setAttribute('aria-labelledby', title.id); title.textContent = t('title'); panel.appendChild(title);
     const list = document.createElement('div'); list.className = 'gd-list';
     analysis.issues.forEach(function (issue, idx) {
       const row = document.createElement('div'); row.className = 'gd-row';
@@ -173,7 +177,7 @@
       const btns = document.createElement('div'); btns.className = 'gd-btns';
       if (issue.type === 'ambiguous') {
         issue.alternatives.forEach(function (alt) {
-          const b = document.createElement('button'); b.type = 'button'; b.className = 'gd-mini'; b.textContent = alt;
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'gd-mini'; b.textContent = alt; b.setAttribute('aria-label', t('apply') + ': ' + alt);
           b.addEventListener('click', function () { applyOne(idx, alt); });
           btns.appendChild(b);
         });
@@ -182,12 +186,12 @@
         btns.appendChild(keep);
       } else if (issue.alternatives && issue.alternatives.length > 1) {
         issue.alternatives.forEach(function (alt) {
-          const b = document.createElement('button'); b.type = 'button'; b.className = 'gd-mini'; b.textContent = alt;
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'gd-mini'; b.textContent = alt; b.setAttribute('aria-label', t('apply') + ': ' + alt);
           b.addEventListener('click', function () { applyOne(idx, alt); });
           btns.appendChild(b);
         });
       } else {
-        const b = document.createElement('button'); b.type = 'button'; b.className = 'gd-mini'; b.textContent = t('apply');
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'gd-mini'; b.textContent = t('apply'); b.setAttribute('aria-label', t('apply') + ': ' + issue.corrected);
         b.addEventListener('click', function () { applyOne(idx, issue.corrected); });
         btns.appendChild(b);
       }
@@ -221,8 +225,12 @@
     panel.appendChild(foot);
     document.body.appendChild(panel);
     const r = el.getBoundingClientRect();
-    panel.style.left = Math.max(8, Math.min(window.innerWidth - 340, r.left)) + 'px';
-    panel.style.top = Math.max(8, r.top - panel.offsetHeight - 10) + 'px';
+    const panelWidth = Math.min(panel.offsetWidth || 360, window.innerWidth - 16);
+    const left = Math.max(8, Math.min(window.innerWidth - panelWidth - 8, r.left));
+    const above = r.top - panel.offsetHeight - 10;
+    panel.style.left = left + 'px';
+    panel.style.top = Math.max(8, Math.min(window.innerHeight - Math.min(panel.offsetHeight, window.innerHeight - 16) - 8, above >= 8 ? above : r.bottom + 10)) + 'px';
+    panel.focus();
   }
   function closePanel() { if (panel) { panel.remove(); panel = null; } }
   function applyOne(idx, value) {
@@ -279,8 +287,7 @@
     if (dismissed.get(el) === text) return; // user already chose "keep as is"
     const analysis = window.GDDecoder.analyze(text, settings);
     // Block the send only for confident wrong-layout fixes (dictionary
-    // hit). Spelling, ambiguous, "likely", half-space and digit-only
-    // items never stop a message from being sent.
+    // hit). Ambiguous and "likely" matches never stop a message from being sent.
     const blocking = analysis.issues.filter(function (it) {
       return (it.type === 'layout-fa' || it.type === 'layout-en') && it.confidence === 'dict';
     });
@@ -288,6 +295,8 @@
     e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
     showPanel(el, analysis, true);
   }, true);
+
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && panel) { e.preventDefault(); closePanel(); if (currentEl && currentEl.isConnected) currentEl.focus(); } }, true);
 
   document.addEventListener('focusin', function (e) { const el = e.target; if (isChatComposer(el)) { attach(el); analyseAndShow(el, true); } });
   window.addEventListener('scroll', function () { if (currentEl && floatBtn && floatBtn.style.display !== 'none') positionFloat(currentEl); }, true);

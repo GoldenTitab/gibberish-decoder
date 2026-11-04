@@ -19,24 +19,22 @@ translate and does not change meaning; it only fixes the keyboard layout.
   "Fix text" button appears above the box. Click it to open the
   suggestion panel.
 - **Per-row fixes.** Each row shows original → corrected with a type label
-  (wrong layout, spelling, half-space). "Apply" fixes only that row;
+  (wrong layout, half-space). "Apply" fixes only that row;
   "Fix all" applies all confident fixes at once.
 - **Choice when both sides make sense.** If a word is valid in both
-  languages, or a spelling has several equally-close options (for example
-  `helo` could be help / hello / held), the panel shows every option and
-  picks none automatically.
+  languages, the panel shows every option and picks none automatically.
 - **Enter guard.** With "warn before send" on, pressing Enter (without
   Shift) while confident wrong-layout text is present stops the send and
-  opens the panel. Click "Fix and send" to fix first, then send. Spelling,
-  ambiguous, half-space and digit-only items never block a send, and
+  opens the panel. Click "Fix and send" to fix first, then send. Ambiguous,
+  half-space and digit-only items never block a send, and
   "Close" / "Keep as is" lets that exact text through on the next Enter.
 - **Half-space (ZWNJ).** `می روم` → `می‌روم`, `کتاب ها` → `کتاب‌ها`.
 - **Numbers and punctuation.** Converted together with a converted segment
   (`sghl 123?` → `سلام ۱۲۳؟`), never on their own.
 - **Persian output uses Persian ک and ی.**
-- **Spelling suggestions, never auto-applied.** Dictionaries are small and
-  offline, so a spelling suggestion is only ever a clickable row, never a
-  silent "Fix all" change.
+- **No spelling correction.** Unknown words are left untouched. Version
+  1.0.8 deliberately removed spelling suggestions, so a typo like `wrold`
+  or `helo` is never "corrected" into a wrong word.
 - **Fully local.** No fetch, no analytics, no remote service. Settings are
   stored only with `chrome.storage.local` on this device.
 - **Vazir font.** The popup, options page, floating button and panel all
@@ -55,8 +53,9 @@ in this version. Chrome desktop only.
 2. Open Chrome and go to `chrome://extensions`.
 3. Turn on `Developer mode` at the top right.
 4. Click `Load unpacked` and pick the project folder.
-5. The icon (white A and yellow ف on a dark indigo square) should appear
-   in the toolbar. If not, click the Extensions puzzle icon and pin it.
+5. The Gibberish Decoder icon (purple ف / A cubes with swap arrows)
+   should appear in the toolbar. If not, click the Extensions puzzle
+   icon and pin it.
 
 To update: pull the new version into the same folder, then click Refresh
 on the extension in `chrome://extensions`.
@@ -73,7 +72,7 @@ on the extension in `chrome://extensions`.
 
 Settings (extension icon, or Details → Extension options) include:
 enabled, floating button, block gibberish on Enter, convert numbers,
-fix half-space, English/Persian spelling suggestions, only multiline
+fix half-space, only multiline
 chat boxes, and UI language (Persian / English). The popup and options
 pages also have a test box: paste gibberish there and convert it without
 going to a site.
@@ -107,20 +106,21 @@ node tests/test_decoder.js
 ```
 
 It covers layout conversion in both directions, mixed text, ZWNJ pairs,
-numbers, spelling suggestions, ambiguous words, and words that must stay
-unchanged. See [TESTS.md](TESTS.md) for the full case list.
+numbers, ambiguous words, and words that must stay
+unchanged — including the explicit rule that spelling is never analysed.
+See [TESTS.md](TESTS.md) for the full case list.
 
 ## Project structure
 
 ```text
 manifest.json          Manifest V3, storage permission only
 content.js / content.css   Floating button, panel, Enter guard
-src/decoder.js         Layout map, ZWNJ, spelling, analysis
+src/decoder.js         Layout map, ZWNJ, digit handling, analysis
 src/dictionaries.js    Offline English / Persian word lists
 popup.html / popup.js / popup.css   Toolbar popup + test box
 options.html           Extension options page
 fonts.css / fonts/     Bundled Vazir font (Thin/Light/Regular/Medium/Bold)
-icons/                 Extension icons (16/32/48/128)
+icons/                 Extension icons (16/32/48/128, plus master + logo source)
 _locales/              Extension name/description (en/fa)
 tests/test_decoder.js  Node regression tests
 README_FA.md           Full Persian install/use guide
@@ -129,7 +129,8 @@ README_EN.md           Full English install/use guide
 
 ## Version
 
-Current version: **1.0.5** — the edited 1.0.4 build (stricter spelling,
-non-consuming ZWNJ pairs, tech-term whitelist, ambiguous suppression,
-spelling never auto-applied, Enter guard only for confident layout fixes)
-plus the bundled Vazir font.
+Current version: **1.0.8** — layout-only correction (spelling analysis
+removed: unknown words stay untouched), expanded ZWNJ patterns
+(می/نمی, ها/های/هایی), Persian/Arabic-Indic digit handling, redesigned
+popup/options UI with accessibility labels, new icons, and the bundled
+Vazir font.

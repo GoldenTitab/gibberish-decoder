@@ -40,7 +40,7 @@
   "permissions": [
     "storage"
   ],
-  "version": "1.0.5",
+  "version": "1.0.8",
   "web_accessible_resources": [
     {
       "matches": [

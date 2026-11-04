@@ -4,7 +4,7 @@
     "description": "Extension name"
   },
   "extDescription": {
-    "message": "Fixes text typed on the wrong keyboard layout (Persian <-> English) in chat boxes, plus half-space and spelling suggestions. 100% local, no network.",
+    "message": "Offline Persian-English keyboard layout correction.",
     "description": "Extension description"
   }
 }

@@ -1,47 +1,18 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
-<head>
-<meta charset="utf-8">
-<title>Gibberish Decoder</title>
-<link rel="stylesheet" href="fonts.css">
-<link rel="stylesheet" href="popup.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gibberish Decoder</title><link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="popup.css"></head>
 <body>
-<h1>Gibberish Decoder</h1>
-<p class="sub">فارسی ↔ انگلیسی — فقط روی همین دستگاه، بدون ارسال متن به هیچ سروری</p>
-
-<label class="row"><input type="checkbox" id="enabled"> فعال باشد</label>
-<label class="row"><input type="checkbox" id="showButton"> دکمه شناور کنار باکس چت</label>
-<label class="row"><input type="checkbox" id="warnBeforeSend"> قبل از ارسال با Enter، جلوی متن چرت را بگیرد</label>
-<label class="row"><input type="checkbox" id="fixNumbers"> عددها هم تبدیل شوند (۱۲۳ ↔ 123)</label>
-<label class="row"><input type="checkbox" id="fixZwnj"> نیم‌فاصله درست شود (می روم → می‌روم، کتاب ها → کتاب‌ها)</label>
-<label class="row"><input type="checkbox" id="spellEn"> پیشنهاد غلط املایی انگلیسی</label>
-<label class="row"><input type="checkbox" id="spellFa"> پیشنهاد غلط املایی فارسی</label>
-<label class="row"><input type="checkbox" id="strictChatOnly"> فقط باکس‌های چت چندخطی (نه همه باکس‌های قابل ویرایش)</label>
-
-<label class="row">زبان رابط کاربری
-<select id="uiLang">
-<option value="fa">فارسی</option>
-<option value="en">English</option>
-</select>
-</label>
-
-<hr>
-<h2>جعبه تست — بدون نیاز به رفتن به سایتی</h2>
-<p class="hint">متن چرت را اینجا بچسبان، مثلا: <code>sghl ]di</code> یا <code>اثممخ</code></p>
-<textarea id="testInput" rows="4" placeholder="sghl ]di"></textarea>
-<div class="btns">
-<button id="testAuto">تبدیل خودکار</button>
-<button id="testFa">همه را به فارسی برگردان</button>
-<button id="testEn">همه را به انگلیسی برگردان</button>
-<button id="copyOut">کپی خروجی</button>
+<header class="hero"><img src="icons/icon128.png" alt="Gibberish Decoder logo" width="54" height="54"><div><p class="eyebrow">ابزار تبدیل چیدمان کیبورد</p><h1>Gibberish Decoder</h1><p class="sub">تبدیل چیدمان اشتباه فارسی و انگلیسی</p></div></header>
+<section class="settings" aria-labelledby="settingsTitle"><h2 id="settingsTitle">تنظیمات</h2>
+<label class="toggle"><input type="checkbox" id="enabled"><span><b>فعال‌سازی Gibberish Decoder</b><small>بررسی متن در کادرهای گفت‌وگو</small></span></label>
+<label class="toggle"><input type="checkbox" id="showButton"><span><b>دکمه‌ی شناور اصلاح</b><small>نمایش پیشنهادها کنار کادر نوشتن</small></span></label>
+<label class="toggle"><input type="checkbox" id="warnBeforeSend"><span><b>بررسی پیش از ارسال</b><small>هشدار برای خطاهای قطعی چیدمان هنگام فشردن Enter</small></span></label>
+<div class="setting-grid">
+<label><input type="checkbox" id="fixNumbers"> یکدست‌سازی اعداد (۱۲۳ ↔ 123)</label><label><input type="checkbox" id="fixZwnj"> اصلاح نیم‌فاصله (می روم ← می‌روم)</label><label class="wide"><input type="checkbox" id="strictChatOnly"> فقط کادرهای چت شناخته‌شده</label>
 </div>
-<textarea id="testOutput" rows="4" readonly></textarea>
-<div id="testIssues"></div>
-
-<p class="foot">چیدمان پشتیبانی‌شده: ویندوز فارسی (ایران) 0429 ↔ انگلیسی آمریکا 0409. نسخه 1.0.5 — کاملا آفلاین، فونت وزیر.</p>
-<script src="src/dictionaries.js"></script>
-<script src="src/decoder.js"></script>
-<script src="popup.js"></script>
-</body>
-</html>
+<label class="language">زبان رابط کاربری<select id="uiLang"><option value="fa">فارسی</option><option value="en">English</option></select></label>
+</section>
+<section class="tester" aria-labelledby="testTitle"><h2 id="testTitle">آزمایش سریع</h2><p class="hint">مثلاً <code>sghl ]di</code> یا <code>اثممخ</code> را وارد کن.</p><label class="sr-only" for="testInput">متن ورودی برای آزمایش</label><textarea id="testInput" rows="3" placeholder="متن را اینجا وارد کن…"></textarea><div class="btns"><button id="testAuto" class="primary">اصلاح هوشمند</button><button id="testFa">به فارسی</button><button id="testEn">به انگلیسی</button></div><label class="sr-only" for="testOutput">خروجی اصلاح‌شده</label><textarea id="testOutput" rows="3" readonly aria-label="خروجی اصلاح‌شده" placeholder="نتیجه اینجا نمایش داده می‌شود"></textarea><div class="output-actions"><button id="copyOut">کپی نتیجه</button><span id="copyStatus" role="status" aria-live="polite"></span></div><div id="testIssues" role="status" aria-live="polite"></div></section>
+<footer><span class="privacy-dot"></span> پردازش کاملاً محلی، بدون ارسال متن به سرور <span class="version">نسخه 1.0.8</span></footer>
+<script src="src/dictionaries.js"></script><script src="src/decoder.js"></script><script src="popup.js"></script>
+</body></html>

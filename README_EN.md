@@ -1,4 +1,4 @@
-# Gibberish Decoder — Install and Use (English)
+# Gibberish Decoder (Gibberish Decoder) — Install and Use (English)
 
 A desktop Chrome extension for multiline chat boxes, on all sites.
 Typed on the wrong keyboard layout? For example you meant Persian but the
@@ -45,19 +45,16 @@ Refresh on the extension in `chrome://extensions`.
 2. Type the gibberish text. After a short pause, a floating button
    «تبدیل متن (n)» / "Fix text (n)" appears above the box.
 3. Click it. The suggestion panel opens:
-   - Each row: original → corrected, with a type label (wrong layout,
-     spelling, half-space).
+   - Each row shows a keyboard-layout conversion or a half-space correction.
    - "Apply" fixes only that row.
-   - "Fix all" applies all confident fixes at once. Spelling suggestions
-     are never applied by "Fix all"; you click them yourself.
-   - If a word makes sense in both languages, or a spelling has several
-     equally-close options (for example `helo` could be help / hello /
-     held), the panel shows every option as a button and picks none of
-     them automatically. The original text is left alone until you pick.
+   - "Fix all" applies only confident keyboard-layout, half-space (ZWNJ),
+     and contextual number normalization.
+   - No Persian or English spelling correction or spelling suggestions
+     are included. Unknown words are left untouched.
 4. Sending: if "warn before send" is on and you press Enter (without
    Shift) while confident wrong-layout text is present, the send is
    stopped and the panel opens. Click "Fix and send" to fix first, then
-   send. Spelling, ambiguous and half-space items never block a send, and
+   send. Ambiguous items never block a send, and
    "Close" / "Keep as is" lets that exact text through on the next Enter.
    Honest note: every site's Send button is different; Enter interception
    is the main path. If you send by clicking the site's Send button, the
@@ -75,7 +72,6 @@ Click the extension icon (popup) or, in `chrome://extensions`, click
 - Convert numbers too (۱۲۳ ↔ 123) — only together with a converted
   segment, not on their own
 - Fix half-space (ZWNJ): می روم → می‌روم, کتاب ها → کتاب‌ها
-- English / Persian spelling suggestions
 - Only multiline chat boxes — if off, all multiline editable boxes are
   included, but password and search fields are still excluded
 - UI language: Persian / English
@@ -131,9 +127,7 @@ Node tests on the conversion logic (not in a browser) passed for:
 - `سلام خوبی؟` → unchanged
 - `می روم` → `می‌روم`
 - `کتاب ها` → `کتاب‌ها`
-- `wrold` → suggestion `world` (transpositions count as 1 edit; spelling is
-  suggest-only, never auto-applied)
-- `helo` → options: help / hello / held (not auto-picked)
+
 
 Live testing in a browser on chat sites has not been done yet — after
 installing, try one gibberish test message in ChatGPT or Gemini and tell

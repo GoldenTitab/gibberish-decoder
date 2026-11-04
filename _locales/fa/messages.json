@@ -4,7 +4,7 @@
     "description": "Extension name"
   },
   "extDescription": {
-    "message": "متن تایپ‌شده با کیبورد اشتباه (فارسی ↔ انگلیسی) را در باکس چت درست می‌کند، با نیم‌فاصله و پیشنهاد غلط املایی. کاملا آفلاین.",
+    "message": "تبدیل آفلاین چیدمان اشتباه کیبورد فارسی و انگلیسی.",
     "description": "Extension description"
   }
 }

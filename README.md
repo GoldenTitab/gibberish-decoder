@@ -1,5 +1,7 @@
 # Gibberish Decoder
 
+![Gibberish Decoder banner](banner.png)
+
 A Chrome extension that fixes text typed on the wrong keyboard layout in
 multiline chat boxes, on all sites.
 
@@ -113,6 +115,7 @@ See [TESTS.md](TESTS.md) for the full case list.
 ## Project structure
 
 ```text
+banner.png             Project banner (Persian + English, shown above)
 manifest.json          Manifest V3, storage permission only
 content.js / content.css   Floating button, panel, Enter guard
 src/decoder.js         Layout map, ZWNJ, digit handling, analysis

@@ -230,6 +230,57 @@
       if ((prev === 'en' || next === 'en') && prev !== 'fa' && next !== 'fa') issues.splice(k, 1);
     }
 
+    // ---- Step 2c: sentence-level context. The dictionaries are small, so
+    // a wrong-layout Persian sentence always contains words the dictionary
+    // has never seen (دکمه, شناور, کروم ...). Judging every word on its own
+    // leaves those behind, and "likely" words were listed but never applied.
+    // When most of the text is clearly wrong-layout Persian, finish the
+    // job: promote "likely" hits, convert a lone "," (= و), and convert
+    // the remaining unknown Latin-key chunks, except ones that look like
+    // real English (pronounceable letters only), a domain/file name, or a
+    // tech term. Only runs for the Persian direction: an unknown Persian
+    // chunk cannot be told apart from a correct Persian word.
+    if (settings.contextFix !== false) {
+      let wrongFa = 0, rightEn = 0, rightFa = 0;
+      issues.forEach(function (it) { if (it.type === 'layout-fa' && it.confidence === 'dict') wrongFa++; });
+      chunks.forEach(function (c, i) {
+        const hasIssue = issues.some(function (it) { return it.type !== 'ambiguous' && it.start < c.end && c.start < it.end; });
+        if (chunkDirs[i] === 'en') rightEn++;
+        else if (chunkDirs[i] === 'fa' && !hasIssue) rightFa++;
+      });
+      if (wrongFa >= 1 && wrongFa > rightEn + rightFa) {
+        issues.forEach(function (it) { if (it.type === 'layout-fa' && it.confidence === 'likely') it.confidence = 'context'; });
+        chunks.forEach(function (chunk, ci) {
+          if (chunkDirs[ci]) return;
+          if (issues.some(function (it) { return it.start < chunk.end && chunk.start < it.end; })) return;
+          const t = chunk.text;
+          if (t === ',') {
+            issues.push({ start: chunk.start, end: chunk.end, original: t, corrected: 'و', type: 'layout-fa', alternatives: ['و'], confidence: 'context' });
+            chunkDirs[ci] = 'fa'; return;
+          }
+          const body = t.replace(/[?!:]+$/, '');
+          if (body.length < 2 || !/^[A-Za-z\[\]\\;',.]+$/.test(body) || !/[A-Za-z\[\]\\;',]/.test(body)) return;
+          if (/[A-Za-z]\.[A-Za-z]/.test(body)) return; // github.com, file.txt
+          if (/^[A-Za-z]{3,}$/.test(body) && pronounceable(body)) {
+            // Reads like real English, so never convert it silently. But do
+            // not drop it silently either: offer both readings in the panel
+            // (e.g. "fhai" = باشه). Skipped when the decoded form would need
+            // Shift-only marks, which means it was clearly real English.
+            const alt = convertEnToFa(body, { fixNumbers: false, fixZwnj: false });
+            if (FA_LETTERS_ONLY.test(alt) && !/[\u064B-\u0652\u0629\u0624\u0625\u0623\u0621\u0640]/.test(alt)) {
+              issues.push({ start: chunk.start, end: chunk.start + body.length, original: body, corrected: body, type: 'ambiguous', alternatives: [body, alt], confidence: 'both-valid' });
+            }
+            return;
+          }
+          if (TECH_TERMS.indexOf(body.toLowerCase()) !== -1) return;
+          const corr = convertEnToFa(body, settings);
+          if (!FA_LETTERS_RE.test(corr)) return;
+          issues.push({ start: chunk.start, end: chunk.start + body.length, original: body, corrected: corr, type: 'layout-fa', alternatives: [corr], confidence: 'context' });
+          chunkDirs[ci] = 'fa';
+        });
+      }
+    }
+
     // ---- Step 3: digits and ? / ؟ next to a known-direction segment.
     // Only these two are converted on their own: "?" is Shift+/ in both
     // layouts (so ? <-> ؟ is a physical mapping), and digits were
@@ -271,6 +322,43 @@
     if (settings.fixZwnj) correctedText = fixZwnj(correctedText);
     return { issues: issues, correctedText: correctedText, hasIssues: issues.length > 0 };
   }
+  // ---- Whole-text conversion, same engine as the popup's quick test.
+  // The only extra step is choosing the direction automatically:
+  //  1) dictionary evidence from analyze() (wrong-layout fa vs en hits);
+  //  2) with no evidence at all, a "gibberish" test on the Latin-key
+  //     chunks (inner ; , [ ] ' keys or unpronounceable letter runs).
+  // Returns 'fa', 'en' or null (null = no clear direction, do not force).
+  function detectDirection(text, settings, analysis) {
+    settings = settings || {};
+    analysis = analysis || analyze(text, settings);
+    let toFa = 0, toEn = 0;
+    analysis.issues.forEach(function (it) {
+      if (it.type === 'layout-fa' && it.confidence !== 'neighbour') toFa++;
+      else if (it.type === 'layout-en' && it.confidence !== 'neighbour') toEn++;
+    });
+    if (toFa > toEn) return 'fa';
+    if (toEn > toFa) return 'en';
+    const st = sets();
+    const chunks = text.split(/\s+/).filter(function (c) { return c.length >= 2; });
+    const latin = chunks.filter(function (c) { return /^[A-Za-z\[\]\\;',.?!:]+$/.test(c) && /[A-Za-z\[\]\\;',]/.test(c); });
+    if (!latin.length || latin.length !== chunks.length) return null;
+    let valid = 0, gib = 0;
+    latin.forEach(function (c) {
+      const body = c.replace(/[?!:.]+$/, '');
+      if (st.en.has(body.toLowerCase())) { valid++; return; }
+      if (TECH_TERMS.indexOf(body.toLowerCase()) !== -1 || /[A-Za-z]\.[A-Za-z]/.test(body)) return;
+      if (/[A-Za-z][;,'\[\]\\][A-Za-z]/.test(body) || /^[\[\];',\\]/.test(body) || !pronounceable(body)) gib++;
+    });
+    return (gib >= 1 && gib * 2 >= latin.length && valid * 2 < latin.length) ? 'fa' : null;
+  }
+  function convertAuto(text, settings) {
+    settings = Object.assign({ fixNumbers: true, fixZwnj: true }, settings || {});
+    const analysis = analyze(text, settings);
+    const dir = detectDirection(text, settings, analysis);
+    if (dir === 'fa') return { direction: 'fa', text: convertEnToFa(text, settings) };
+    if (dir === 'en') return { direction: 'en', text: convertFaToEn(text, settings) };
+    return { direction: null, text: analysis.correctedText };
+  }
   function applyIssues(text, issues) {
     let out = text;
     const sorted = issues.slice().sort(function (a, b) { return b.start - a.start; });
@@ -286,7 +374,8 @@
     EN_TO_FA: EN_TO_FA, FA_TO_EN: FA_TO_EN,
     normalizeFa: normalizeFa, faLookupKey: faLookupKey,
     fixZwnj: fixZwnj, convertEnToFa: convertEnToFa, convertFaToEn: convertFaToEn,
-    analyze: analyze, applyIssues: applyIssues, tokenize: tokenize
+    analyze: analyze, detectDirection: detectDirection, convertAuto: convertAuto,
+    applyIssues: applyIssues, tokenize: tokenize
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 if (typeof module !== 'undefined' && module.exports) module.exports = globalThis.GDDecoder;

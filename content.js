@@ -13,8 +13,8 @@
   let dismissed = new WeakMap(); // element -> text the user chose to keep as is (Enter guard stays quiet for it)
 
   const STR = {
-    fa: { btn: 'تبدیل متن', fixAll: 'اصلاح همه', close: 'بستن', fixSend: 'اصلاح و ارسال', keep: 'همین بمونه', layoutFa: 'کیبورد اشتباه: فارسی', layoutEn: 'کیبورد اشتباه: انگلیسی', zwnj: 'نیم‌فاصله', ambiguous: 'هر دو معنی می‌ده، انتخاب کن', apply: 'اعمال', title: 'Gibberish Decoder — پیشنهاد تبدیل' },
-    en: { btn: 'Fix text', fixAll: 'Fix all', close: 'Close', fixSend: 'Fix and send', keep: 'Keep as is', layoutFa: 'Wrong layout: Persian', layoutEn: 'Wrong layout: English', zwnj: 'Half-space (ZWNJ)', ambiguous: 'Both make sense — pick one', apply: 'Apply', title: 'Gibberish Decoder — layout suggestions' }
+    fa: { btn: 'تبدیل متن', fixAll: 'اصلاح همه', smart: 'اصلاح هوشمند', forceFa: 'کل متن ← فارسی', forceEn: 'کل متن ← انگلیسی', close: 'بستن', fixSend: 'اصلاح و ارسال', keep: 'همین بمونه', layoutFa: 'کیبورد اشتباه: فارسی', layoutEn: 'کیبورد اشتباه: انگلیسی', zwnj: 'نیم‌فاصله', ambiguous: 'هر دو معنی می‌ده، انتخاب کن', apply: 'اعمال', title: 'Gibberish Decoder — پیشنهاد تبدیل' },
+    en: { btn: 'Fix text', fixAll: 'Fix all', smart: 'Smart fix', forceFa: 'Whole text → Persian', forceEn: 'Whole text → English', close: 'Close', fixSend: 'Fix and send', keep: 'Keep as is', layoutFa: 'Wrong layout: Persian', layoutEn: 'Wrong layout: English', zwnj: 'Half-space (ZWNJ)', ambiguous: 'Both make sense — pick one', apply: 'Apply', title: 'Gibberish Decoder — layout suggestions' }
   };
   function t(key) { return (STR[settings.uiLang] || STR.fa)[key] || key; }
 
@@ -142,7 +142,7 @@
       });
       document.body.appendChild(floatBtn);
     }
-    floatBtn.textContent = t('btn') + ' (' + analysis.issues.length + ')';
+    floatBtn.textContent = analysis.issues.length ? t('btn') + ' (' + analysis.issues.length + ')' : t('btn');
     positionFloat(el);
     floatBtn.style.display = 'block';
   }
@@ -200,12 +200,13 @@
     panel.appendChild(list);
     const foot = document.createElement('div'); foot.className = 'gd-foot';
     const fixAll = document.createElement('button'); fixAll.type = 'button'; fixAll.className = 'gd-primary'; fixAll.textContent = t('fixAll');
-    function doFix(thenSend) {
-      // Use the analyser's correctedText, not a manual re-apply: it
-      // already excludes ambiguous/likely/spelling items and includes the
-      // post-layout ZWNJ restoration (می خواهم -> می‌خواهم).
-      const fresh = window.GDDecoder.analyze(getText(el), settings);
-      setText(el, fresh.correctedText);
+    function doFix(thenSend, smart) {
+      // Default = same as the popup's quick test: convert the WHOLE text,
+      // with the direction picked automatically. "Smart" keeps the old
+      // word-by-word behaviour (only dictionary-confirmed words).
+      const cur = getText(el);
+      const res = window.GDDecoder.convertAuto(cur, settings);
+      setText(el, smart ? window.GDDecoder.analyze(cur, settings).correctedText : res.text);
       closePanel();
       if (thenSend) {
         sendBypass.set(el, true);
@@ -214,6 +215,22 @@
     }
     fixAll.addEventListener('click', function () { doFix(false); });
     foot.appendChild(fixAll);
+    // Same behaviour as the popup's quick test: convert the WHOLE text on
+    // the user's explicit say-so, with no dictionary judgement per word.
+    function forceAll(toFa) {
+      const cur = getText(el);
+      setText(el, toFa ? window.GDDecoder.convertEnToFa(cur, settings) : window.GDDecoder.convertFaToEn(cur, settings));
+      closePanel();
+    }
+    const forceFa = document.createElement('button'); forceFa.type = 'button'; forceFa.className = 'gd-secondary'; forceFa.textContent = t('forceFa');
+    forceFa.addEventListener('click', function () { forceAll(true); });
+    foot.appendChild(forceFa);
+    const forceEn = document.createElement('button'); forceEn.type = 'button'; forceEn.className = 'gd-secondary'; forceEn.textContent = t('forceEn');
+    forceEn.addEventListener('click', function () { forceAll(false); });
+    foot.appendChild(forceEn);
+    const smartBtn = document.createElement('button'); smartBtn.type = 'button'; smartBtn.className = 'gd-secondary'; smartBtn.textContent = t('smart');
+    smartBtn.addEventListener('click', function () { doFix(false, true); });
+    foot.appendChild(smartBtn);
     if (isSend) {
       const fs = document.createElement('button'); fs.type = 'button'; fs.className = 'gd-primary'; fs.textContent = t('fixSend');
       fs.addEventListener('click', function () { doFix(true); });
@@ -257,7 +274,7 @@
     const text = getText(el);
     if (!text || text.trim().length < 2) { hideFloat(); closePanel(); return; }
     const analysis = window.GDDecoder.analyze(text, settings);
-    if (!analysis.hasIssues) { hideFloat(); return; }
+    if (!analysis.hasIssues && !window.GDDecoder.detectDirection(text, settings, analysis)) { hideFloat(); return; }
     if (fromInput) showFloat(el, analysis);
     else { currentAnalysis = analysis; }
   }

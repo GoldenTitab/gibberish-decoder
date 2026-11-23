@@ -1,20 +1,3 @@
-/* Gibberish Decoder — core logic, 100% local.
-   Layout: Windows Persian (Iran) 00000429, KBDFA.DLL, verified against
-   kbdlayout.info/KBDFA/shiftstates. Ali's PC (checked 2026-11-03 via SSH)
-   has: en-US 00000409, fa 00000429, de-DE 00000407. This extension
-   covers the fa <-> en pair only; German layout is out of scope.
-   Mapping is by PHYSICAL key, not by sound. Example: pressing the key
-   labelled S while intending Persian gives س, so Latin "sghl" is
-   Persian "سلام" typed on the wrong layout, and Persian "اثممخ" is
-   English "hello" typed on the wrong layout.
-   Ambiguity is real for a few characters (notably "," which is both
-   the English comma key and Shift+U in Persian). The analyser never
-   silently guesses those: it returns an "ambiguous" issue with both
-   options and leaves the text unchanged until the user picks one.
-   Tokenisation is by whitespace chunk, not by letter run, because in
-   the wrong layout several Persian letters ARE punctuation keys in
-   English (چ is ], ج is [, پ is \, گ is ', ک is ;, و is ,). Splitting
-   on those would shred words like "]di" (چیه) and "o,fd" (خوبی). */
 (function (root) {
   const EN_TO_FA = {
     '`': '÷', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '0': '0', '-': '-', '=': '=',
@@ -30,7 +13,7 @@
   const FA_TO_EN = {};
   Object.keys(EN_TO_FA).forEach(function (en) {
     const fa = EN_TO_FA[en];
-    if (fa === ',') return; // ambiguous "," — handled by the analyser, not this table
+    if (fa === ',') return;
     if (!(fa in FA_TO_EN)) FA_TO_EN[fa] = en;
   });
   FA_TO_EN['ك'] = ';'; FA_TO_EN['ي'] = 'd'; FA_TO_EN['ى'] = 'd';
@@ -63,10 +46,6 @@
 
   const ZWNJ_PREFIXES = ['می', 'نمی'];
   const ZWNJ_SUFFIXES = ['ها', 'های', 'هایی', 'تر', 'ترین', 'ی'];
-  // Find "word<space>word" pairs that need a half-space. Words are
-  // scanned one by one (not with a consuming regex), otherwise in
-  // "من می روم" the pair "من می" would swallow "می" and "می روم"
-  // would never be seen.
   function zwnjPairs(text) {
     const re = /[\u0621-\u064A\u066E-\u06D3]+/g;
     const words = []; let m;
@@ -105,16 +84,11 @@
   }
 
   function hasVowel(s) { return /[aeiou]/i.test(s); }
-  // A decoded Persian word is only "likely English" when it could be
-  // pronounced: has a vowel and no run of 3+ consonants ("isjl" is not).
   function pronounceable(s) { return hasVowel(s) && !/[^aeiou]{3,}/i.test(s); }
-  // Vowel-less tech terms that are real English, never gibberish.
   const TECH_TERMS = ['html', 'http', 'https', 'pnpm', 'grpc', 'mvvm', 'cdnjs', 'ssh', 'sudo', 'rdbms'];
   function isLatinChunk(t) { return /[A-Za-z]/.test(t); }
   function isFaChunk(t) { return FA_LETTERS_RE.test(t); }
 
-  // Strip only true sentence punctuation from the ends for a dict check.
-  // Do NOT strip [ ] \ ; ' , here: in the wrong layout those ARE letters.
   function stripSentencePunct(t) {
     return t.replace(/^[«»"“”'(\s]+/, '').replace(/[\s?!.,;:؟،؛»"”')]+$/, '');
   }
@@ -123,8 +97,6 @@
     settings = Object.assign({ fixNumbers: true, fixZwnj: true }, settings || {});
     const s = sets();
     const issues = [];
-    // ---- Step 1: ZWNJ first, so "می روم" is fixed as a pair and its
-    // parts are handled as a single half-space correction.
     const zwnjIssues = [];
     if (settings.fixZwnj) {
       zwnjPairs(text).forEach(function (p) {
@@ -135,12 +107,10 @@
     function overlapsZwnj(start, end) { return zwnjIssues.some(function (it) { return it.start < end && start < it.end; }); }
     issues.push.apply(issues, zwnjIssues);
 
-    // ---- Step 2: whitespace chunks.
     const chunkRe = /\S+/g; let cm;
     const chunks = [];
     while ((cm = chunkRe.exec(text)) !== null) chunks.push({ text: cm[0], start: cm.index, end: cm.index + cm[0].length });
-    // Helper to decide a chunk's direction for digit/punct neighbours.
-    const chunkDirs = []; // 'fa' | 'en' | null, filled as we go
+    const chunkDirs = [];
     chunks.forEach(function (chunk, ci) {
       const t = chunk.text;
       if (overlapsZwnj(chunk.start, chunk.end)) { chunkDirs[ci] = 'fa'; return; }
@@ -148,17 +118,12 @@
       if (!core || core.length < 2) { chunkDirs[ci] = null; return; }
       const latin = isLatinChunk(core) && !isFaChunk(core);
       const fa = isFaChunk(core) && !isLatinChunk(core);
-      if (!latin && !fa) { chunkDirs[ci] = null; return; } // digits/punct only, handled in step 3
+      if (!latin && !fa) { chunkDirs[ci] = null; return; }
       if (latin) {
-        // Whole-chunk first (so "]di" -> "چیه", "o,fd" -> "خوبی"),
-        // then stripped core (so "sghl," -> "سلام" + ",").
         const candidates = [];
         candidates.push({ str: t, start: chunk.start, end: chunk.end });
         if (core !== t) candidates.push({ str: core, start: chunk.start + (t.indexOf(core)), end: chunk.start + (t.indexOf(core)) + core.length });
         let handled = false;
-        // Pass 1: dict / ambiguous for every candidate first, so a
-        // dict-valid core ("sghl" in "sghl,") wins over a merely
-        // "likely" whole chunk ("سلامو" from "sghl,").
         for (const cand of candidates) {
           const str = cand.str;
           const lower = str.toLowerCase();
@@ -178,7 +143,6 @@
           }
         }
         if (handled) return;
-        // Pass 2: "likely" whole/core, only if no dict hit above.
         for (const cand of candidates) {
           const str = cand.str;
           const lower = str.toLowerCase();
@@ -193,11 +157,9 @@
           }
         }
         if (handled) return;
-        // Valid English; unknown words are left untouched.
         if (s.en.has(core.toLowerCase())) { chunkDirs[ci] = 'en'; return; }
         chunkDirs[ci] = null; return;
       }
-      // Persian chunk
       if (core.indexOf('‌') !== -1) { chunkDirs[ci] = 'fa'; return; }
       if (s.fa.has(faLookupKey(core))) { chunkDirs[ci] = 'fa'; return; }
       const decoded = convertFaToEn(core, { fixNumbers: false });
@@ -217,8 +179,6 @@
       chunkDirs[ci] = null;
     });
 
-    // ---- Step 2b: an "ambiguous" word (e.g. "and" is also شدی) sitting
-    // among valid English words is just English; do not bother the user.
     for (let k = issues.length - 1; k >= 0; k--) {
       const it = issues[k];
       if (it.type !== 'ambiguous') continue;
@@ -230,16 +190,6 @@
       if ((prev === 'en' || next === 'en') && prev !== 'fa' && next !== 'fa') issues.splice(k, 1);
     }
 
-    // ---- Step 2c: sentence-level context. The dictionaries are small, so
-    // a wrong-layout Persian sentence always contains words the dictionary
-    // has never seen (دکمه, شناور, کروم ...). Judging every word on its own
-    // leaves those behind, and "likely" words were listed but never applied.
-    // When most of the text is clearly wrong-layout Persian, finish the
-    // job: promote "likely" hits, convert a lone "," (= و), and convert
-    // the remaining unknown Latin-key chunks, except ones that look like
-    // real English (pronounceable letters only), a domain/file name, or a
-    // tech term. Only runs for the Persian direction: an unknown Persian
-    // chunk cannot be told apart from a correct Persian word.
     if (settings.contextFix !== false) {
       let wrongFa = 0, rightEn = 0, rightFa = 0;
       issues.forEach(function (it) { if (it.type === 'layout-fa' && it.confidence === 'dict') wrongFa++; });
@@ -260,12 +210,8 @@
           }
           const body = t.replace(/[?!:]+$/, '');
           if (body.length < 2 || !/^[A-Za-z\[\]\\;',.]+$/.test(body) || !/[A-Za-z\[\]\\;',]/.test(body)) return;
-          if (/[A-Za-z]\.[A-Za-z]/.test(body)) return; // github.com, file.txt
+          if (/[A-Za-z]\.[A-Za-z]/.test(body)) return;
           if (/^[A-Za-z]{3,}$/.test(body) && pronounceable(body)) {
-            // Reads like real English, so never convert it silently. But do
-            // not drop it silently either: offer both readings in the panel
-            // (e.g. "fhai" = باشه). Skipped when the decoded form would need
-            // Shift-only marks, which means it was clearly real English.
             const alt = convertEnToFa(body, { fixNumbers: false, fixZwnj: false });
             if (FA_LETTERS_ONLY.test(alt) && !/[\u064B-\u0652\u0629\u0624\u0625\u0623\u0621\u0640]/.test(alt)) {
               issues.push({ start: chunk.start, end: chunk.start + body.length, original: body, corrected: body, type: 'ambiguous', alternatives: [body, alt], confidence: 'both-valid' });
@@ -281,17 +227,11 @@
       }
     }
 
-    // ---- Step 3: digits and ? / ؟ next to a known-direction segment.
-    // Only these two are converted on their own: "?" is Shift+/ in both
-    // layouts (so ? <-> ؟ is a physical mapping), and digits were
-    // explicitly requested. Other punctuation is left alone unless it
-    // was part of a layout token in step 2.
     if (settings.fixNumbers) {
       chunks.forEach(function (chunk, ci) {
         const t = chunk.text;
         if (!/^[0-9۰-۹٠-٩?؟]+$/.test(t)) return;
         if (overlapsZwnj(chunk.start, chunk.end)) return;
-        // Direction from nearest non-null neighbour, preferring previous.
         let dir = null;
         for (let i = ci - 1; i >= 0; i--) { if (chunkDirs[i]) { dir = chunkDirs[i]; break; } }
         if (!dir) for (let i = ci + 1; i < chunks.length; i++) { if (chunkDirs[i]) { dir = chunkDirs[i]; break; } }
@@ -305,7 +245,6 @@
 
     issues.sort(function (x, y) { return x.start - y.start; });
     let correctedText = text;
-    // Apply only confident keyboard-layout/ZWNJ/number corrections.
     const apply = issues.filter(function (it) {
       return it.type !== 'ambiguous' && it.confidence !== 'likely';
     });
@@ -313,21 +252,9 @@
       const it = apply[i];
       correctedText = correctedText.slice(0, it.start) + it.corrected + correctedText.slice(it.end);
     }
-    // ZWNJ restoration after layout conversion: a Persian word typed on
-    // the English layout loses its half-space (Shift+Space becomes a
-    // plain space), so "ld o,hil" -> "می خواهم" must then become
-    // "می‌خواهم", and ";jhf ih" -> "کتاب ها" must become "کتاب‌ها".
-    // The panel's Fix-all uses correctedText (see content.js), so it
-    // gets this fix too.
     if (settings.fixZwnj) correctedText = fixZwnj(correctedText);
     return { issues: issues, correctedText: correctedText, hasIssues: issues.length > 0 };
   }
-  // ---- Whole-text conversion, same engine as the popup's quick test.
-  // The only extra step is choosing the direction automatically:
-  //  1) dictionary evidence from analyze() (wrong-layout fa vs en hits);
-  //  2) with no evidence at all, a "gibberish" test on the Latin-key
-  //     chunks (inner ; , [ ] ' keys or unpronounceable letter runs).
-  // Returns 'fa', 'en' or null (null = no clear direction, do not force).
   function detectDirection(text, settings, analysis) {
     settings = settings || {};
     analysis = analysis || analyze(text, settings);

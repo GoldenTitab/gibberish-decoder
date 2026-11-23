@@ -1,7 +1,3 @@
-/* Vazir — Ali's own font files, bundled locally, no CDN, no download.
-   Weights match the files Ali uploaded 2026-10-26:
-   Thin 100, Light 300, Regular 400, Medium 500, Bold 700. No 800 file,
-   so 800 resolves to the nearest weight (700). */
 @font-face {
   font-family: 'Vazir';
   src: url('fonts/Vazir-Thin.ttf') format('truetype');

@@ -1,16 +1,9 @@
-/* Gibberish Decoder — content script.
-   Attaches only to long chat composers (see isChatComposer), never to
-   password / search / single-line inputs. All analysis runs locally in
-   this page; no text is fetched, posted, or sent anywhere.
-   Send guard: Enter (without Shift) is intercepted in the capture phase
-   only when issues exist and warnBeforeSend is on. The panel then offers
-   "Fix and send", which applies the fix and re-triggers the send. */
 (function () {
   'use strict';
   const DEFAULTS = { enabled: true, showButton: true, warnBeforeSend: true, fixNumbers: true, fixZwnj: true, strictChatOnly: true, uiLang: 'fa' };
   let settings = Object.assign({}, DEFAULTS);
-  let sendBypass = new WeakMap(); // element -> true while we re-trigger its send
-  let dismissed = new WeakMap(); // element -> text the user chose to keep as is (Enter guard stays quiet for it)
+  let sendBypass = new WeakMap();
+  let dismissed = new WeakMap();
 
   const STR = {
     fa: { btn: 'تبدیل متن', fixAll: 'اصلاح همه', smart: 'اصلاح هوشمند', forceFa: 'کل متن ← فارسی', forceEn: 'کل متن ← انگلیسی', close: 'بستن', fixSend: 'اصلاح و ارسال', keep: 'همین بمونه', layoutFa: 'کیبورد اشتباه: فارسی', layoutEn: 'کیبورد اشتباه: انگلیسی', zwnj: 'نیم‌فاصله', ambiguous: 'هر دو معنی می‌ده، انتخاب کن', apply: 'اعمال', title: 'Gibberish Decoder — پیشنهاد تبدیل' },
@@ -18,9 +11,6 @@
   };
   function t(key) { return (STR[settings.uiLang] || STR.fa)[key] || key; }
 
-  // Vazir for the injected UI. content.css alone cannot resolve a font
-  // file inside a web page, so inject @font-face with the extension URL.
-  // This needs fonts/* in web_accessible_resources (see manifest.json).
   function injectVazir() {
     try {
       if (document.getElementById('gd-vazir-style')) return;
@@ -201,9 +191,6 @@
     const foot = document.createElement('div'); foot.className = 'gd-foot';
     const fixAll = document.createElement('button'); fixAll.type = 'button'; fixAll.className = 'gd-primary'; fixAll.textContent = t('fixAll');
     function doFix(thenSend, smart) {
-      // Default = same as the popup's quick test: convert the WHOLE text,
-      // with the direction picked automatically. "Smart" keeps the old
-      // word-by-word behaviour (only dictionary-confirmed words).
       const cur = getText(el);
       const res = window.GDDecoder.convertAuto(cur, settings);
       setText(el, smart ? window.GDDecoder.analyze(cur, settings).correctedText : res.text);
@@ -215,8 +202,6 @@
     }
     fixAll.addEventListener('click', function () { doFix(false); });
     foot.appendChild(fixAll);
-    // Same behaviour as the popup's quick test: convert the WHOLE text on
-    // the user's explicit say-so, with no dictionary judgement per word.
     function forceAll(toFa) {
       const cur = getText(el);
       setText(el, toFa ? window.GDDecoder.convertEnToFa(cur, settings) : window.GDDecoder.convertFaToEn(cur, settings));
@@ -257,8 +242,6 @@
     const text = getText(currentEl);
     const next = text.slice(0, issue.start) + value + text.slice(issue.end);
     setText(currentEl, next);
-    // Re-analyse after a single fix so offsets stay honest, and rebuild
-    // the panel from the fresh analysis instead of reusing stale offsets.
     closePanel();
     setTimeout(function () {
       if (!currentEl) return;
@@ -301,10 +284,8 @@
     if (sendBypass.get(el)) return;
     const text = getText(el);
     if (!text || text.trim().length < 2) return;
-    if (dismissed.get(el) === text) return; // user already chose "keep as is"
+    if (dismissed.get(el) === text) return;
     const analysis = window.GDDecoder.analyze(text, settings);
-    // Block the send only for confident wrong-layout fixes (dictionary
-    // hit). Ambiguous and "likely" matches never stop a message from being sent.
     const blocking = analysis.issues.filter(function (it) {
       return (it.type === 'layout-fa' || it.type === 'layout-en') && it.confidence === 'dict';
     });
